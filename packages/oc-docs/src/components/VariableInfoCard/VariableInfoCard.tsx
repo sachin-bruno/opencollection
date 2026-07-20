@@ -108,6 +108,7 @@ export const VariableInfoCard: React.FC<VariableInfoCardProps> = ({ name, testId
   const readOnlyNote = getReadOnlyNote(info.scope, activeEnvName);
   const canEdit = editable && info.scope === 'environment' && !info.secret;
   const placeholder = info.secret ? '(Secret)' : !canEdit && info.value === '' ? '(empty)' : null;
+  const showValueCopy = !info.secret && info.value !== '';
 
   return (
     <StyledWrapper className="variable-info-card" data-testid={testId}>
@@ -119,25 +120,24 @@ export const VariableInfoCard: React.FC<VariableInfoCardProps> = ({ name, testId
             onCommit={(value) => updateVariable(info.name, value)}
             testId={testId}
           />
-        ) : placeholder ? (
-          <div className="var-value-display var-value-placeholder" data-testid={`${testId}-value`}>
-            {placeholder}
-          </div>
         ) : (
-          <>
-            <div className="var-value-display" data-testid={`${testId}-value`}>
-              {info.value}
-            </div>
-            <div className="var-icons">
-              <CopyButton
-                text={info.value}
-                label="Copy value"
-                resetAfterMs={1000}
-                className="copy-button"
-                testId={`${testId}-copy`}
-              />
-            </div>
-          </>
+          <div
+            className={placeholder ? 'var-value-display var-value-placeholder' : 'var-value-display'}
+            data-testid={`${testId}-value`}
+          >
+            {placeholder ?? info.value}
+          </div>
+        )}
+        {showValueCopy && (
+          <div className="var-icons">
+            <CopyButton
+              text={info.value}
+              label="Copy value"
+              resetAfterMs={1000}
+              className="copy-button"
+              testId={`${testId}-copy`}
+            />
+          </div>
         )}
       </div>
       {readOnlyNote && (

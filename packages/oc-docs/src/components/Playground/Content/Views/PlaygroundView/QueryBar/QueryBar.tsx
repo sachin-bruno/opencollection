@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import type { HttpRequest } from '@opencollection/types/requests/http';
 import { StyledWrapper } from './StyledWrapper';
 import MenuDropdown from '../../../../../../ui/MenuDropdown';
+import HighlightedInput from '../../../../../../components/HighlightedInput/HighlightedInput';
+import { VariableText } from '../../../../../../components/VariableText/VariableText';
+import { useResolvedVariables } from '../../../../../../hooks';
 import { getHttpMethod, getRequestUrl, getHttpParams } from '../../../../../../utils/schemaHelpers';
 import { syncPathParams, syncQueryParams } from '../../../../../../utils/pathParams';
 import { availableMethods, getMethodColorVar } from '../../../../../../theme/methodColors';
@@ -16,11 +19,16 @@ interface QueryBarProps {
 const QueryBar: React.FC<QueryBarProps> = ({ item, onSendRequest, isLoading, onItemChange }) => {
   const [url, setUrl] = useState(getRequestUrl(item));
   const [method, setMethod] = useState(getHttpMethod(item));
+  const { isFound, names, showVars } = useResolvedVariables();
 
   useEffect(() => {
     setUrl(getRequestUrl(item));
     setMethod(getHttpMethod(item));
   }, [item]);
+
+  const handleSubmit = () => {
+    if (url.trim() && !isLoading) onSendRequest();
+  };
 
   const handleUrlChange = (newUrl: string) => {
     setUrl(newUrl);
@@ -55,7 +63,7 @@ const QueryBar: React.FC<QueryBarProps> = ({ item, onSendRequest, isLoading, onI
     <StyledWrapper
       className="flex items-stretch"
       style={{
-        height: '36px'
+        height: '2.25rem'
       }}
     >
       <div className="method-select-wrapper">
@@ -81,23 +89,21 @@ const QueryBar: React.FC<QueryBarProps> = ({ item, onSendRequest, isLoading, onI
         </MenuDropdown>
       </div>
 
-      <input
-        type="text"
-        value={url}
-        onChange={(e) => handleUrlChange(e.target.value)}
-        placeholder="Enter request URL"
-        className="flex-1 px-3 text-xs font-normal"
-        style={{
-          fontFamily: 'var(--font-mono)',
-          fontSize: '12px',
-          fontWeight: 400
-        }}
-        onKeyPress={(e) => {
-          if (e.key === 'Enter' && url.trim() && !isLoading) {
-            onSendRequest();
-          }
-        }}
-      />
+      {showVars ? (
+        <div className="query-bar-url-resolved" data-testid="query-bar-url-resolved">
+          <VariableText value={url} />
+        </div>
+      ) : (
+        <HighlightedInput
+          value={url}
+          onValueChange={handleUrlChange}
+          onSubmit={handleSubmit}
+          isFound={isFound}
+          names={names}
+          placeholder="Enter request URL"
+          testId="query-bar-url"
+        />
+      )}
 
       <button
         onClick={onSendRequest}

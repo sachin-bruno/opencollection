@@ -25,6 +25,7 @@ interface HighlightedInputProps {
   title?: string;
   testId?: string;
   multiline?: boolean;
+  onSubmit?: () => void;
 }
 
 interface HoveredToken {
@@ -75,7 +76,8 @@ export const HighlightedInput: React.FC<HighlightedInputProps> = ({
   variablesAutocomplete = true,
   title,
   testId,
-  multiline = false
+  multiline = false,
+  onSubmit
 }) => {
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
   const mirrorRef = useRef<HTMLDivElement | null>(null);
@@ -257,7 +259,10 @@ export const HighlightedInput: React.FC<HighlightedInputProps> = ({
   };
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    if (!autocomplete) return;
+    if (!autocomplete) {
+      if (event.key === 'Enter' && onSubmit) onSubmit();
+      return;
+    }
     const { items, active } = autocomplete;
     switch (event.key) {
       case 'ArrowDown':

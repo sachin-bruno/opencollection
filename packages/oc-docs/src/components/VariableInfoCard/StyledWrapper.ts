@@ -85,7 +85,7 @@ export const StyledWrapper = styled.div`
     width: 100%;
     height: 100%;
     margin: 0;
-    padding: 0;
+    padding: 0 1.5rem 0 0;
     font-family: var(--font-sans);
     font-size: 0.8125rem;
     font-weight: 400;

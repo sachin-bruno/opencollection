@@ -144,6 +144,12 @@ describe('VariableInfoCard — playground (editable env vars)', () => {
     expect(root.querySelector(selector('value'))).toBeNull();
   });
 
+  it('still offers a copy button while editing an env var (edit and copy both work)', () => {
+    const root = useRenderToDom(playgroundCardTree('host'));
+    expect(root.querySelector(selector('input'))).not.toBeNull();
+    expect(root.querySelector(selector('copy'))).not.toBeNull();
+  });
+
   it('keeps a secret env var read-only — a (Secret) placeholder, no input', () => {
     const root = useRenderToDom(playgroundCardTree('bearer_token'));
     expect(root.querySelector(selector('input'))).toBeNull();
