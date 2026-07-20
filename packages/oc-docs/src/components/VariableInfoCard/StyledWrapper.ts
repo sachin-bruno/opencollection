@@ -81,6 +81,26 @@ export const StyledWrapper = styled.div`
     color: var(--text-tertiary);
   }
 
+  .var-value-input {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    font-family: var(--font-sans);
+    font-size: 0.8125rem;
+    font-weight: 400;
+    line-height: 1.25rem;
+    color: var(--text-primary);
+    background: transparent;
+    border: none;
+    outline: none;
+  }
+
+  .var-value-container:focus-within {
+    outline: 0.0625rem solid var(--primary-color);
+    outline-offset: -0.0625rem;
+  }
+
   .var-icons {
     position: absolute;
     top: 50%;

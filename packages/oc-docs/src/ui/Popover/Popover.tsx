@@ -181,6 +181,11 @@ export const Popover: React.FC<PopoverProps> = ({
             className={['oc-popover', className].filter(Boolean).join(' ')}
             onMouseEnter={clearTimer}
             onMouseLeave={scheduleClose}
+            onFocusCapture={clearTimer}
+            onBlurCapture={(event) => {
+              if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+              scheduleClose();
+            }}
             style={{
               position: 'fixed',
               top: position ? position.top : OFFSCREEN,

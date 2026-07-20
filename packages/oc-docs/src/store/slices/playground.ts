@@ -4,9 +4,12 @@ import type { OpenCollection as OpenCollectionCollection } from '@opencollection
 import type { Environment } from '@opencollection/types/config/environments';
 import type { Item as OpenCollectionItem, Folder } from '@opencollection/types/collection/item';
 import type { HttpRequest } from '@opencollection/types/requests/http';
+import type { Variable } from '@opencollection/types/common/variables';
 import type { RootState } from '../store';
 import { hydrateWithUUIDs, findAndUpdateItem } from '../../utils/fileUtils';
 import { isFolder } from '../../utils/schemaHelpers';
+import { writeBackValue } from '../../utils/environments';
+import { isSecretVariable } from '../../utils/variableResolution';
 
 export type ViewMode = 'playground' | 'environments' | 'folder-settings' | 'collection-settings' | 'example';
 
@@ -202,6 +205,27 @@ const playgroundSlice = createSlice({
       state.collection = action.payload;
       state.hydratedCollection = action.payload;
     },
+    updateEnvironmentVariable: (
+      state: PlaygroundState,
+      action: PayloadAction<{ envName: string; varName: string; value: string }>
+    ) => {
+      const { envName, varName, value } = action.payload;
+      const applyTo = (collection: OpenCollectionCollection | null) => {
+        if (!collection) return;
+        const environments = readEnvironments(collection);
+        if (!environments) return;
+        const environment = environments.find((env) => env.name === envName);
+        if (!environment || !environment.variables) return;
+        let target: Variable | undefined;
+        for (const variable of environment.variables) {
+          if (variable.name === varName && !isSecretVariable(variable)) target = variable as Variable;
+        }
+        if (!target) return;
+        target.value = writeBackValue(target.value, value);
+      };
+      applyTo(state.collection);
+      applyTo(state.hydratedCollection);
+    },
     updateFolderInCollection: (state: PlaygroundState, action: PayloadAction<{ uuid: string; folder: Folder }>) => {
       if (!state.hydratedCollection?.items) return;
       
@@ -238,6 +262,7 @@ export const {
   expandFolders,
   updateCollectionSettings,
   updateCollectionEnvironments,
+  updateEnvironmentVariable,
   updateFolderInCollection,
   resetPlaygroundEnvironments
 } = playgroundSlice.actions;

@@ -85,6 +85,7 @@ export const HighlightedInput: React.FC<HighlightedInputProps> = ({
   const justTypedRef = useRef(false);
   const moveFrame = useRef<number | null>(null);
   const overCardRef = useRef(false);
+  const cardFocusedRef = useRef(false);
 
   const [hovered, setHovered] = useState<HoveredToken | null>(null);
   const [hoverPos, setHoverPos] = useState<Coords | null>(null);
@@ -112,6 +113,7 @@ export const HighlightedInput: React.FC<HighlightedInputProps> = ({
     if (closeTimer.current) return;
     closeTimer.current = setTimeout(() => {
       closeTimer.current = null;
+      if (cardFocusedRef.current) return;
       setHovered(null);
     }, HOVER_CLOSE_MS);
   }, [cancelOpen]);
@@ -142,7 +144,7 @@ export const HighlightedInput: React.FC<HighlightedInputProps> = ({
   useEffect(() => {
     if (!hovered && !autocomplete) return undefined;
     const dismiss = () => {
-      if (overCardRef.current) return;
+      if (overCardRef.current || cardFocusedRef.current) return;
       setHovered(null);
       setAutocomplete(null);
     };
@@ -159,9 +161,11 @@ export const HighlightedInput: React.FC<HighlightedInputProps> = ({
     };
   }, [hovered, autocomplete, cardEl, listEl]);
 
-  // The card exists only while `hovered` is set, so once it clears the pointer can't be over it.
   useEffect(() => {
-    if (!hovered) overCardRef.current = false;
+    if (!hovered) {
+      overCardRef.current = false;
+      cardFocusedRef.current = false;
+    }
   }, [hovered]);
 
   useLayoutEffect(() => {
@@ -370,6 +374,15 @@ export const HighlightedInput: React.FC<HighlightedInputProps> = ({
             }}
             onMouseLeave={() => {
               overCardRef.current = false;
+              scheduleClose();
+            }}
+            onFocusCapture={() => {
+              cardFocusedRef.current = true;
+              cancelClose();
+            }}
+            onBlurCapture={(event) => {
+              if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+              cardFocusedRef.current = false;
               scheduleClose();
             }}
             style={{

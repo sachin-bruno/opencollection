@@ -1,11 +1,12 @@
-import React, { createContext, useContext, useMemo } from 'react';
+import React, { createContext, useCallback, useContext, useMemo } from 'react';
 import type { OpenCollection } from '@opencollection/types';
 import type { Environment } from '@opencollection/types/config/environments';
 import type { Item } from '@opencollection/types/collection/item';
 import type { Variable, SecretVariable } from '@opencollection/types/common/variables';
-import { useAppSelector } from '../store/hooks';
+import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { selectDocsCollection } from '../store/slices/docs';
 import { selectActiveEnvName, selectShowVars } from '../store/slices/env';
+import { selectHydratedCollection, updateEnvironmentVariable } from '../store/slices/playground';
 import { getRequestVariables, isFolder } from '../utils/schemaHelpers';
 import { mockDataFunctions, timeBasedDynamicVars } from '../runner/utils/faker-functions';
 import {
@@ -27,6 +28,7 @@ export interface VariableLookup {
   name: string;
   scope: VariableScope;
   value: string;
+  rawValue: string;
   secret: boolean;
   valid: boolean;
   dynamicKind?: DynamicVariableKind;
@@ -53,17 +55,20 @@ const classifyDynamic = (name: string): DynamicVariableKind => {
 export interface VariableResolver {
   showVars: boolean;
   activeEnvName: string | null;
+  /** True only under the playground provider, where env-var values are editable. */
+  editable: boolean;
   resolve: (raw: string) => string;
   isSecret: (name: string) => boolean;
   secretRefName: (raw: string) => string | null;
   lookup: (name: string) => VariableLookup;
+  updateVariable: (name: string, value: string) => void;
   isFound: (name: string) => boolean;
   names: string[];
 }
 
 const lookupVariable = (rawName: string, model: ScopedVariableModel): VariableLookup => {
   const name = (rawName ?? '').trim();
-  const base = { name, value: '', secret: false };
+  const base = { name, value: '', rawValue: '', secret: false };
 
   const special = detectSpecialScope(name);
   if (special === 'dynamic') return { ...base, scope: 'dynamic', valid: true, dynamicKind: classifyDynamic(name) };
@@ -76,18 +81,23 @@ const lookupVariable = (rawName: string, model: ScopedVariableModel): VariableLo
   const safeValue = formatEntryValue(entry, model.values);
   const secret = entry.secret || model.secretNames.has(name) || referencesSecret(safeValue, model.secretNames);
   const value = secret ? formatEntryValue(entry, model.fullValues) : safeValue;
-  return { name, scope: entry.scope, value, secret, valid: true };
+  return { name, scope: entry.scope, value, rawValue: entry.value, secret, valid: true };
 };
+
+const noopUpdate = (): void => {};
 
 const makeResolver = (
   model: ScopedVariableModel,
   showVars: boolean,
-  activeEnvName: string | null
+  activeEnvName: string | null,
+  editable = false,
+  updateVariable: (name: string, value: string) => void = noopUpdate
 ): VariableResolver => {
   const isSecret = (name: string) => model.secretNames.has(name.trim());
   return {
     showVars,
     activeEnvName,
+    editable,
     isSecret,
     isFound: (name: string) => Object.prototype.hasOwnProperty.call(model.entries, name),
     names: Object.keys(model.entries),
@@ -96,7 +106,8 @@ const makeResolver = (
       const name = singleReferenceName(raw);
       return name && isSecret(name) ? name : null;
     },
-    lookup: (name: string) => lookupVariable(name, model)
+    lookup: (name: string) => lookupVariable(name, model),
+    updateVariable
   };
 };
 
@@ -140,10 +151,12 @@ export const useVariableResolver = (): VariableResolver => {
 const PASSTHROUGH_RESOLVER: VariableResolver = {
   showVars: false,
   activeEnvName: null,
+  editable: false,
   resolve: (raw) => raw,
   isSecret: () => false,
   secretRefName: () => null,
-  lookup: (name) => ({ name: (name ?? '').trim(), scope: 'undefined', value: '', secret: false, valid: true }),
+  lookup: (name) => ({ name: (name ?? '').trim(), scope: 'undefined', value: '', rawValue: '', secret: false, valid: true }),
+  updateVariable: noopUpdate,
   isFound: () => false,
   names: []
 };
@@ -182,6 +195,33 @@ export const ItemVariableResolverProvider: React.FC<{
   }, [collection, activeEnvName, ancestry, item]);
 
   const resolver = useMemo(() => makeResolver(model, showVars, activeEnvName), [model, showVars, activeEnvName]);
+
+  return <VariableResolverContext.Provider value={resolver}>{children}</VariableResolverContext.Provider>;
+};
+
+export const PlaygroundVariableResolverProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const dispatch = useAppDispatch();
+  const collection = useAppSelector(selectHydratedCollection) as OpenCollection | null;
+  const activeEnvName = useAppSelector(selectActiveEnvName);
+  const showVars = useAppSelector(selectShowVars);
+
+  const model = useMemo(
+    () => buildScopedVariableModel(collectionAndEnvSources(collection, activeEnvName)),
+    [collection, activeEnvName]
+  );
+
+  const updateVariable = useCallback(
+    (name: string, value: string) => {
+      if (!activeEnvName) return;
+      dispatch(updateEnvironmentVariable({ envName: activeEnvName, varName: name, value }));
+    },
+    [dispatch, activeEnvName]
+  );
+
+  const resolver = useMemo(
+    () => makeResolver(model, showVars, activeEnvName, true, updateVariable),
+    [model, showVars, activeEnvName, updateVariable]
+  );
 
   return <VariableResolverContext.Provider value={resolver}>{children}</VariableResolverContext.Provider>;
 };

@@ -5,7 +5,15 @@ import { describe, it, expect } from 'vitest';
 import { createOpenCollectionStore } from '../store/store';
 import { setDocsCollection } from '../store/slices/docs';
 import { setActiveEnv, setShowVars } from '../store/slices/env';
-import { useVariableResolver, useResolvedVariables, ItemVariableResolverProvider } from './useVariableResolver';
+import { setPlaygroundCollection, selectHydratedCollection } from '../store/slices/playground';
+import {
+  useVariableResolver,
+  useResolvedVariables,
+  ItemVariableResolverProvider,
+  PlaygroundVariableResolverProvider,
+  VariableResolverProvider,
+  type VariableResolver
+} from './useVariableResolver';
 
 const collection: any = {
   request: { variables: [{ name: 'collectionVar', value: 'cval' }] },
@@ -139,5 +147,77 @@ describe('lookup (variable hover card)', () => {
   it('degrades to an undefined scope with no provider', () => {
     const html = renderToStaticMarkup(<LookupProbe name="anything" />);
     expect(html).toContain('<span data-testid="scope">undefined</span>');
+  });
+});
+
+const EditProbe: React.FC<{ name: string; capture?: (resolver: VariableResolver) => void }> = ({ name, capture }) => {
+  const resolver = useResolvedVariables();
+  if (capture) capture(resolver);
+  const info = resolver.lookup(name);
+  return (
+    <div>
+      <span data-testid="editable">{String(resolver.editable)}</span>
+      <span data-testid="scope">{info.scope}</span>
+      <span data-testid="raw">{info.rawValue}</span>
+    </div>
+  );
+};
+
+describe('PlaygroundVariableResolverProvider (editable env vars)', () => {
+  const playgroundStore = () => {
+    const store = createOpenCollectionStore();
+    store.dispatch(setPlaygroundCollection(collection));
+    store.dispatch(setActiveEnv('Dev'));
+    return store;
+  };
+
+  it('is editable and exposes the raw (un-resolved) value for an env var', () => {
+    const html = renderToStaticMarkup(
+      <Provider store={playgroundStore()}>
+        <PlaygroundVariableResolverProvider>
+          <EditProbe name="baseUrl" />
+        </PlaygroundVariableResolverProvider>
+      </Provider>
+    );
+    expect(html).toContain('<span data-testid="editable">true</span>');
+    expect(html).toContain('<span data-testid="scope">environment</span>');
+    expect(html).toContain('<span data-testid="raw">https://dev.test</span>');
+  });
+
+  it('updateVariable persists an env-var edit to the playground collection', () => {
+    const store = playgroundStore();
+    let captured: VariableResolver | null = null;
+    renderToStaticMarkup(
+      <Provider store={store}>
+        <PlaygroundVariableResolverProvider>
+          <EditProbe
+            name="baseUrl"
+            capture={(resolver) => {
+              captured = resolver;
+            }}
+          />
+        </PlaygroundVariableResolverProvider>
+      </Provider>
+    );
+    if (!captured) throw new Error('resolver was not captured');
+    (captured as VariableResolver).updateVariable('baseUrl', 'https://edited.test');
+
+    const dev = selectHydratedCollection(store.getState())!.config!.environments!.find((e: any) => e.name === 'Dev');
+    const baseUrl = dev!.variables!.find((v: any) => v.name === 'baseUrl');
+    expect((baseUrl as any).value).toBe('https://edited.test');
+  });
+
+  it('is NOT editable under the docs (app-level) provider', () => {
+    const store = createOpenCollectionStore();
+    store.dispatch(setDocsCollection(collection));
+    store.dispatch(setActiveEnv('Dev'));
+    const html = renderToStaticMarkup(
+      <Provider store={store}>
+        <VariableResolverProvider>
+          <EditProbe name="baseUrl" />
+        </VariableResolverProvider>
+      </Provider>
+    );
+    expect(html).toContain('<span data-testid="editable">false</span>');
   });
 });

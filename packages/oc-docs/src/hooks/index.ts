@@ -24,6 +24,7 @@ export {
   useResolvedVariables,
   VariableResolverProvider,
   ItemVariableResolverProvider,
+  PlaygroundVariableResolverProvider,
   type VariableResolver,
   type VariableLookup
 } from './useVariableResolver';

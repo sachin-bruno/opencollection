@@ -16,7 +16,7 @@ import {
 import { selectActiveEnvName } from '../../../store/slices/env';
 import type { ExampleHighlight } from '../../Docs/Sidebar/SidebarTree/SidebarTree';
 import { useNavModel } from '../../../routing/hooks';
-import { usePlaygroundUrlState, useElementWidth } from '../../../hooks';
+import { usePlaygroundUrlState, useElementWidth, PlaygroundVariableResolverProvider } from '../../../hooks';
 import { getItemUuid, findItemByUuid } from '../../../utils/itemUtils';
 import { isFolder } from '../../../utils/schemaHelpers';
 import PlaygroundView from '../Content/Views/PlaygroundView/PlaygroundView';
@@ -206,29 +206,31 @@ const PlaygroundBody: React.FC<PlaygroundBodyProps> = ({
   })();
 
   return (
-    <StyledWrapper data-testid="playground-runner" data-overlay-sidebar={dock === 'inline' ? 'true' : undefined}>
-      {sidebarOpen && (
-        <aside className="sidebar" data-testid="playground-sidebar-panel">
-          <PlaygroundSidebar
-            collection={collection}
-            activeSlug={activeSlug}
-            uuidToSlug={uuidToSlug}
-            onNavigate={handleNavigate}
-            onToggleFolder={handleToggleFolder}
-            onExpandFolder={handleExpandFolder}
-            onOpenEnvironments={openEnvironments}
-            environmentsActive={viewMode === 'environments'}
-            onOpenCollection={openCollection}
-            collectionActive={viewMode === 'collection-settings'}
-            activeExample={activeExample}
-            onExampleClick={handleExampleClick}
-          />
-        </aside>
-      )}
-      <div className="view" data-testid="playground-view" ref={viewRef}>
-        {view}
-      </div>
-    </StyledWrapper>
+    <PlaygroundVariableResolverProvider>
+      <StyledWrapper data-testid="playground-runner" data-overlay-sidebar={dock === 'inline' ? 'true' : undefined}>
+        {sidebarOpen && (
+          <aside className="sidebar" data-testid="playground-sidebar-panel">
+            <PlaygroundSidebar
+              collection={collection}
+              activeSlug={activeSlug}
+              uuidToSlug={uuidToSlug}
+              onNavigate={handleNavigate}
+              onToggleFolder={handleToggleFolder}
+              onExpandFolder={handleExpandFolder}
+              onOpenEnvironments={openEnvironments}
+              environmentsActive={viewMode === 'environments'}
+              onOpenCollection={openCollection}
+              collectionActive={viewMode === 'collection-settings'}
+              activeExample={activeExample}
+              onExampleClick={handleExampleClick}
+            />
+          </aside>
+        )}
+        <div className="view" data-testid="playground-view" ref={viewRef}>
+          {view}
+        </div>
+      </StyledWrapper>
+    </PlaygroundVariableResolverProvider>
   );
 };
 

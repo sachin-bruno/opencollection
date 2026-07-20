@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useResolvedVariables } from '../../hooks';
 import { CopyButton } from '../../ui/CopyButton/CopyButton';
 import { SCOPE_LABELS, INVALID_NAME_WARNING } from '../../constants';
@@ -16,8 +16,48 @@ const getReadOnlyNote = (scope: VariableScope, activeEnvName: string | null): st
   return null;
 };
 
+const EditableVarValue: React.FC<{ rawValue: string; onCommit: (value: string) => void; testId: string }> = ({
+  rawValue,
+  onCommit,
+  testId
+}) => {
+  const [draft, setDraft] = useState(rawValue);
+
+  useEffect(() => {
+    setDraft(rawValue);
+  }, [rawValue]);
+
+  const commit = () => {
+    if (draft !== rawValue) onCommit(draft);
+  };
+
+  return (
+    <input
+      type="text"
+      className="var-value-input"
+      data-testid={`${testId}-input`}
+      value={draft}
+      spellCheck={false}
+      autoComplete="off"
+      aria-label="Edit variable value"
+      onChange={(event) => setDraft(event.target.value)}
+      onBlur={commit}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          event.currentTarget.blur();
+        } else if (event.key === 'Escape') {
+          event.preventDefault();
+          setDraft(rawValue);
+          event.currentTarget.blur();
+        }
+      }}
+    />
+  );
+};
+
 export const VariableInfoCard: React.FC<VariableInfoCardProps> = ({ name, testId = 'variable-info-card' }) => {
-  const { lookup, activeEnvName } = useResolvedVariables();
+  const { lookup, activeEnvName, editable, updateVariable } = useResolvedVariables();
   const info = lookup(name);
 
   const header = (
@@ -66,13 +106,20 @@ export const VariableInfoCard: React.FC<VariableInfoCardProps> = ({ name, testId
   }
 
   const readOnlyNote = getReadOnlyNote(info.scope, activeEnvName);
-  const placeholder = info.secret ? '(Secret)' : info.value === '' ? '(empty)' : null;
+  const canEdit = editable && info.scope === 'environment' && !info.secret;
+  const placeholder = info.secret ? '(Secret)' : !canEdit && info.value === '' ? '(empty)' : null;
 
   return (
     <StyledWrapper className="variable-info-card" data-testid={testId}>
       {header}
       <div className="var-value-container">
-        {placeholder ? (
+        {canEdit ? (
+          <EditableVarValue
+            rawValue={info.rawValue}
+            onCommit={(value) => updateVariable(info.name, value)}
+            testId={testId}
+          />
+        ) : placeholder ? (
           <div className="var-value-display var-value-placeholder" data-testid={`${testId}-value`}>
             {placeholder}
           </div>

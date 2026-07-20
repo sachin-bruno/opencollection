@@ -3,8 +3,9 @@ import { Provider } from 'react-redux';
 import { describe, it, expect } from 'vitest';
 import { createOpenCollectionStore } from '../../store/store';
 import { setDocsCollection } from '../../store/slices/docs';
+import { setPlaygroundCollection } from '../../store/slices/playground';
 import { setActiveEnv } from '../../store/slices/env';
-import { VariableResolverProvider } from '../../hooks';
+import { VariableResolverProvider, PlaygroundVariableResolverProvider } from '../../hooks';
 import { useRenderToDom } from '../../hooks/useRenderToDom';
 import { query } from '../../test-utils/dom';
 import { VariableInfoCard } from './VariableInfoCard';
@@ -119,5 +120,46 @@ describe('VariableInfoCard', () => {
     const root = useRenderToDom(cardTree('nope'));
     expect(part(root, 'scope').text).toBe('Undefined');
     expect(part(root, 'note').text).toBe('Variable is not defined');
+  });
+});
+
+const playgroundCardTree = (name: string) => {
+  const store = createOpenCollectionStore();
+  store.dispatch(setPlaygroundCollection(collection));
+  store.dispatch(setActiveEnv('Dev'));
+  return (
+    <Provider store={store}>
+      <PlaygroundVariableResolverProvider>
+        <VariableInfoCard name={name} />
+      </PlaygroundVariableResolverProvider>
+    </Provider>
+  );
+};
+
+describe('VariableInfoCard — playground (editable env vars)', () => {
+  it('renders an editable input seeded with the RAW value (not the resolved one)', () => {
+    const root = useRenderToDom(playgroundCardTree('endpoint'));
+    // `endpoint` = "{{host}}/v1"; editing must target the raw reference, not "https://dev.test/v1".
+    expect(part(root, 'input').getAttribute('value')).toBe('{{host}}/v1');
+    expect(root.querySelector(selector('value'))).toBeNull();
+  });
+
+  it('keeps a secret env var read-only — a (Secret) placeholder, no input', () => {
+    const root = useRenderToDom(playgroundCardTree('bearer_token'));
+    expect(root.querySelector(selector('input'))).toBeNull();
+    expect(part(root, 'value').text).toBe('(Secret)');
+    expect(root.toString()).not.toContain('super-secret');
+  });
+
+  it('does not make a collection-scoped variable editable', () => {
+    const root = useRenderToDom(playgroundCardTree('apiVersion'));
+    expect(root.querySelector(selector('input'))).toBeNull();
+    expect(part(root, 'value').text).toBe('2024-01');
+  });
+
+  it('stays read-only under the docs (non-playground) provider', () => {
+    const root = useRenderToDom(cardTree('host'));
+    expect(root.querySelector(selector('input'))).toBeNull();
+    expect(part(root, 'value').text).toBe('https://dev.test');
   });
 });
